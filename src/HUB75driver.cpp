@@ -4,6 +4,8 @@
 
 #include "HUB75driver.h"
 
+static HUB75driver *activePanel = NULL;
+
 HUB75driver::HUB75driver()
 {
 	
@@ -38,7 +40,27 @@ int HUB75driver::init(boolean dbuf)
 	
 	use_dbuf = dbuf;
 	swap_needed = 0;
+
+	activePanel = this; // For interrupt hander
+
+	//Set timer1
+	cli();// disable global interrupts
+	TCCR1A = 0;// set entire TCCR1A register to 0
+	TCCR1B = 0;// same for TCCR1B
+	TCNT1 = 0;//initialize counter value to 0
+
+	TCCR1B |=  (1 << CS10); //No prescaller
+	TCCR1B |= (1 << WGM12);//CTC mode
+	OCR1A = 992;//62nsec
+						   
+	TIMSK1 |= (1 << OCIE1A); // enable timer compare interrupt
+	sei();//allow interrupts
+
 	return 0;
+}
+
+ISR(TIMER1_COMPA_vect) {
+	activePanel->drive();
 }
 
 void HUB75driver::drive()
