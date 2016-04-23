@@ -23,6 +23,7 @@ public:
 	void draw_point(unsigned char x, unsigned char y, unsigned char r, unsigned char g, unsigned char b);
 	void clear();
 	void swapBuffers();
+	void start();
 
 private:
 	uint8_t         *matrixbuff[2];

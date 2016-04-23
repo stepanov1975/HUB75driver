@@ -43,18 +43,7 @@ int HUB75driver::init(boolean dbuf)
 
 	activePanel = this; // For interrupt hander
 
-	//Set timer1
-	cli();// disable global interrupts
-	TCCR1A = 0;// set entire TCCR1A register to 0
-	TCCR1B = 0;// same for TCCR1B
-	TCNT1 = 0;//initialize counter value to 0
-
-	TCCR1B |=  (1 << CS10); //No prescaller
-	TCCR1B |= (1 << WGM12);//CTC mode
-	OCR1A = 992;//62nsec
-						   
-	TIMSK1 |= (1 << OCIE1A); // enable timer compare interrupt
-	sei();//allow interrupts
+	
 
 	return 0;
 }
@@ -89,14 +78,17 @@ void HUB75driver::drive()
 		addr_pre = line * 32 * 3 + 2;
 		break;
 	}
-
+	//*** Debug ***
+	long int time_start = micros();
+	//*****
 	switch (pwm_count) {
 	case 0:
 	case 1:
 	case 3:
 		for (i = 0; i < 32*3; i+=3) {
 			addr = addr_pre + i;
-			PORTD = img[addr] & B11111100;
+			PORTD = img[addr];
+			//PORTD = img[addr] & B11111100;
 			PORTB = PINB | B00000001;//clock high
 			PORTB = PINB & B11111110;//clock low
 		}
@@ -105,7 +97,7 @@ void HUB75driver::drive()
 		for (i = 0; i < 32 * 3; i += 3) {
 			addr = addr_pre + i;
 			data_out = ((img[addr] & B00000011) << 6) + ((img[addr + 1] & B00000011) << 4) + ((img[addr + 2] & B00000011) << 2);
-			PORTD = data_out & B11111100;
+			PORTD = data_out;//PORTD = data_out & B11111100;
 			PORTB = PINB | B00000001;//clock high
 			PORTB = PINB & B11111110;//clock low
 		}
@@ -119,7 +111,9 @@ void HUB75driver::drive()
 		PORTC = PINC & B11110111;//LAT low
 		PORTB = PINB & B11111101;//OE low
 	}
-
+	//*** Debug ***
+	long elapsed = micros() - time_start;
+	Serial.println(elapsed);
 	//********************
 	if (pwm_count < 16) {
 		pwm_count++;
@@ -182,6 +176,22 @@ void HUB75driver::swapBuffers()
 	if (use_dbuf) {
 		swap_needed = 1;
 	}
+}
+
+void HUB75driver::start()
+{
+	//Set timer1
+	cli();// disable global interrupts
+	TCCR1A = 0;// set entire TCCR1A register to 0
+	TCCR1B = 0;// same for TCCR1B
+	TCNT1 = 0;//initialize counter value to 0
+
+	TCCR1B |= (1 << CS10); //No prescaller
+	TCCR1B |= (1 << WGM12);//CTC mode
+	OCR1A = 992;//62nsec
+
+	TIMSK1 |= (1 << OCIE1A); // enable timer compare interrupt
+	sei();//allow interrupts
 }
 
 
