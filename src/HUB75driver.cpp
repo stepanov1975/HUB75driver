@@ -73,8 +73,8 @@ void HUB75driver::drive()
 	Binary coded modulation
 	Will need to execute cycles 0,1,3,7
 	*/
-	int addr, addr_pre;
-	uint8_t data_out,i;
+	int addr, addr_pre,i;
+	uint8_t data_out;
 	uint8_t* img = matrixbuff[display_buffer_index];
 
 	switch (pwm_count) {
@@ -94,16 +94,16 @@ void HUB75driver::drive()
 	case 0:
 	case 1:
 	case 3:
-		for (i = 0; i < 32; i++) {
-			addr = addr_pre + i * 3;
+		for (i = 0; i < 32*3; i+=3) {
+			addr = addr_pre + i;
 			PORTD = img[addr] & B11111100;
 			PORTB = PINB | B00000001;//clock high
 			PORTB = PINB & B11111110;//clock low
 		}
 		break;
 	case 7:
-		for (i = 0; i < 32; i++) {
-			addr = addr_pre + i * 3;
+		for (i = 0; i < 32 * 3; i += 3) {
+			addr = addr_pre + i;
 			data_out = ((img[addr] & B00000011) << 6) + ((img[addr + 1] & B00000011) << 4) + ((img[addr + 2] & B00000011) << 2);
 			PORTD = data_out & B11111100;
 			PORTB = PINB | B00000001;//clock high
