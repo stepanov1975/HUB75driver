@@ -4,8 +4,12 @@
 
 #include "HUB75driver.h"
 
-
 static HUB75driver *activePanel = NULL;
+
+#define pew "ld  __tmp_reg__, %a[ptr]+"    "\n\t"   \
+      "out %[data]    , __tmp_reg__" "\n\t"   \
+      "SBI 5 , 0"     "\n\t"   \
+      "CBI 5 , 0"     "\n\t"
 
 HUB75driver::HUB75driver()
 {
@@ -70,7 +74,8 @@ void HUB75driver::drive()
 
 	int addr, addr_pre,i;
 	uint8_t data_out,offswt=0;
-	uint8_t* img = matrixbuff[display_buffer_index],ptr;
+	uint8_t  *ptr;
+	img = matrixbuff[display_buffer_index];
 
 	switch (pwm_count) {
 	case 0:
@@ -84,21 +89,23 @@ void HUB75driver::drive()
 		addr_pre = line * 32 * 3 + 64;
 		break;
 	}
+
+	buffptr = &img[addr_pre];
+	ptr = (uint8_t *)buffptr;
 	
 	switch (pwm_count) {
 	case 0:
 	case 1:
 	case 3:
-		for (i = 0; i < 32 ; i++) {
-			//addr = addr_pre + i;
-			//ptr = img[addr_pre + i];
-			PORTD = img[addr_pre + i];
-
-			//PORTD = img[addr] & B11111100;
-			//PORTB = PINB | B00000001;//clock high
-			//PORTB = PINB & B11111110;//clock low
-			{__asm__ volatile ("SBI 5 , 0\n\t" "CBI 5 , 0\n\t"); }//toggle clock high,low
-			
+		{
+			__asm__ volatile(
+			pew pew pew pew pew pew pew pew
+			pew pew pew pew pew pew pew pew
+			pew pew pew pew pew pew pew pew
+			pew pew pew pew pew pew pew pew
+			::[ptr]  "e" (ptr),
+			[data] "I" (_SFR_IO_ADDR(PORTD))
+			); 
 		}
 		break;
 	case 7:
@@ -114,11 +121,21 @@ void HUB75driver::drive()
 	}
 
 	if (pwm_count == 0 || pwm_count == 1 || pwm_count == 3 || pwm_count == 7) {
+		/*
 		PORTB = PINB | B00000010;//OE high
 		PORTC = (PINC & B11111000) | line;//Select line
 		PORTC = PINC | B00001000;//LAT high
 		PORTC = PINC & B11110111;//LAT low
 		PORTB = PINB & B11111101;//OE low
+		/**/
+		PORTB = PINB | B00000010;//OE high
+		PORTC = (PINC & B11111000) | line;//Select line
+		{__asm__ volatile (
+			"SBI 8 , 3\n\t" //LAT high PORTC
+			"CBI 8 , 3\n\t" //LAT low
+			"CBI 5 , 1\n\t" //OE low
+			);
+		}
 		/*
 		{__asm__ volatile (
 			"SBI 5 , 1\n\t" //OE high PORTB

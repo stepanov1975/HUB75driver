@@ -30,6 +30,7 @@ private:
 	boolean use_dbuf;
 	volatile uint8_t pwm_count,line,display_buffer_index,draw_buffer_index,swap_needed;
 	int buffsize;
+	volatile uint8_t *buffptr, *img;
 };
 
 #endif
