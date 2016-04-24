@@ -55,6 +55,7 @@ int HUB75driver::init(boolean dbuf,boolean extra_dim)
 
 	use_dbuf = dbuf;
 	swap_needed = 0;
+	cp_back_to_front = 0;
 	half_brightness = extra_dim;
 	activePanel = this; // For interrupt hander
 
@@ -183,6 +184,7 @@ void HUB75driver::drive()
 	}//if
 	
 	//Counters for lines and Binary Code Modulation
+	
 	if (pwm_count < pwm_count_max) {//15 levels per bit
 		pwm_count++;
 	}
@@ -192,6 +194,7 @@ void HUB75driver::drive()
 		else {
 			line = 0;
 			if (swap_needed==1) {//If double buffering mode
+				
 				if (display_buffer_index == 0) {
 					display_buffer_index = 1;
 					draw_buffer_index = 0;
@@ -200,11 +203,35 @@ void HUB75driver::drive()
 					display_buffer_index = 0;
 					draw_buffer_index = 1;
 				}
+				if (cp_back_to_front) memcpy(matrixbuff[draw_buffer_index], matrixbuff[display_buffer_index], buffsize);
 				swap_needed = 0;
 			}
 		}
 	}
-
+	
+	/*
+	if (line < 7) line++;//Line counter 0-7
+	else {
+		line = 0;
+		if (pwm_count < pwm_count_max) {//15 levels per bit
+			pwm_count++;
+		}
+		else {
+			pwm_count = 0;
+		}
+		if (swap_needed == 1) {//If double buffering mode
+			if (display_buffer_index == 0) {
+				display_buffer_index = 1;
+				draw_buffer_index = 0;
+			}
+			else {
+				display_buffer_index = 0;
+				draw_buffer_index = 1;
+			}
+			swap_needed = 0;
+		}
+	}
+	*/
 	//*** Debug ***
 	//long elapsed = micros() - time_start;
 	//Serial.println(elapsed);
@@ -253,13 +280,14 @@ void HUB75driver::clear()
 	memset(matrixbuff[draw_buffer_index], 0, buffsize);
 }
 
-void HUB75driver::swapBuffers()
+void HUB75driver::swapBuffers(boolean cp_old)
 {
 	//If double buffer mode used this function need to be called each time new information 
 	//need to be displayed
 	//Only flag raised here Actual swap will be synchronised with end of frame
 	if (use_dbuf) {
 		swap_needed = 1;
+		cp_back_to_front = cp_old;
 	}
 }
 
