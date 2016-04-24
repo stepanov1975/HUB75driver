@@ -1,5 +1,7 @@
 // Library to drive HUB75 interface 32x16 LED matrix using Arduino Uno
-// RGBmatrixPanel Arduino library for Adafruit used as example
+// RGBmatrixPanel Arduino library for Adafruit 
+// Written by Limor Fried/Ladyada & Phil Burgess/PaintYourDragon for
+// Adafruit Industries used as example, and couple of lines of code taken from it
 // Pins usaga compatible with Adafruit RGBmatrixPanel Arduino library
 // https://learn.adafruit.com/32x16-32x32-rgb-led-matrix/
 // Pins mapping for HUB75 interface A A0,B A1,C A2,R1 2,R2 5,B1 4,B2 7,G1 3,G2 6,LAT A3,CLK 8,OE 9
@@ -45,6 +47,7 @@ int HUB75driver::init(boolean dbuf,boolean extra_dim)
 {
 	/*Initialisation of matrix
 	if dbuf=true double buffering used
+	extra_dim alows additional dimming. brightness will reduce by half
 	in this case swapBuffers() function need to be called to update picture
 	Pin mapping:
 	A A0,B A1,C A2,R1 2,R2 5,B1 4,B2 7,G1 3,G2 6,LAT A3,CLK 8,OE 9
