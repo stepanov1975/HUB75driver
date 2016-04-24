@@ -1,6 +1,8 @@
-// 
-// 
-// 
+// Library to drive HUB75 interface 32x16 LED matrix using Arduino Uno
+// RGBmatrixPanel Arduino library for Adafruit used as example
+// Pins usaga compatible with Adafruit RGBmatrixPanel Arduino library
+// https://learn.adafruit.com/32x16-32x32-rgb-led-matrix/
+// Pins mapping for HUB75 interface A A0,B A1,C A2,R1 2,R2 5,B1 4,B2 7,G1 3,G2 6,LAT A3,CLK 8,OE 9
 
 #include "HUB75driver.h"
 
@@ -11,6 +13,25 @@ static HUB75driver *activePanel = NULL;
       "SBI 5 , 0"     "\n\t"   \
       "CBI 5 , 0"     "\n\t"
 
+#define pew1 "ld  __tmp_reg__, %a[ptr]+"    "\n\t"   \
+      "bst __tmp_reg__,1 " "\n\t"   \
+      "bld r1 , 7 " "\n\t"   \
+      "bst __tmp_reg__,0 " "\n\t"   \
+      "bld r1,6 " "\n\t"   \
+	  "ld  __tmp_reg__, %a[ptr1]+"    "\n\t"   \
+	  "bst __tmp_reg__,1 " "\n\t"   \
+	  "bld r1,5 " "\n\t"   \
+	  "bst __tmp_reg__,0 " "\n\t"   \
+	  "bld r1,4 " "\n\t"   \
+	  "ld  __tmp_reg__, %a[ptr2]+"    "\n\t"   \
+	  "bst __tmp_reg__,1 " "\n\t"   \
+	  "bld r1,3 " "\n\t"   \
+	  "bst __tmp_reg__,0 " "\n\t"   \
+	  "bld r1,2 " "\n\t"   \
+      "out %[data]    , r1" "\n\t"   \
+      "SBI 5 , 0"     "\n\t"   \
+      "CBI 5 , 0"     "\n\t"
+
 HUB75driver::HUB75driver()
 {
 	
@@ -18,7 +39,10 @@ HUB75driver::HUB75driver()
 
 int HUB75driver::init(boolean dbuf)
 {
-	/*
+	/*Initialisation of matrix
+	if dbuf=true double buffering used
+	in this case swapBuffers() function need to be called to update picture
+	Pin mapping:
 	A A0,B A1,C A2,R1 2,R2 5,B1 4,B2 7,G1 3,G2 6,LAT A3,CLK 8,OE 9
 	*/
 	DDRD = DDRD | B11111100;//sets pins 2 to 7 as outputs without changing the value of pins 0 & 1, which are RX & TX
@@ -30,10 +54,10 @@ int HUB75driver::init(boolean dbuf)
 
 	// Allocate and initialize matrix buffer:
 	buffsize = 32 * 8 * 3; // x3 = 3 bytes holds 4 planes "packed"
-	matrixbuff[0] = (uint8_t *)calloc(buffsize, sizeof(uint8_t));//(int*) calloc (i,sizeof(int));
+	matrixbuff[0] = (uint8_t *)calloc(buffsize, sizeof(uint8_t));//allocate for single buffer
 	if (matrixbuff[0] == NULL) return 1;
-	if (dbuf) {
-		matrixbuff[1] = (uint8_t *)calloc(buffsize, sizeof(uint8_t));
+	if (dbuf) {//If double buffering used
+		matrixbuff[1] = (uint8_t *)calloc(buffsize, sizeof(uint8_t));//Alocate for second buffer
 		if (matrixbuff[1] == NULL) return 1;
 		display_buffer_index = 0;
 		draw_buffer_index = 1;
@@ -47,113 +71,94 @@ int HUB75driver::init(boolean dbuf)
 	swap_needed = 0;
 
 	activePanel = this; // For interrupt hander
-
-	
-
 	return 0;
 }
 
 ISR(TIMER1_COMPA_vect) {
-	activePanel->drive();
+	activePanel->drive();//Matrix refrshing function
 }
 
 void HUB75driver::drive()
 {
 	/*
-	Using 4 bits per color,3 bytes packed like this
-	byte 1 B2_0,G2_0,R2_0,B1_0,G1_0,R1_0,B2_3,G2_3
-	byte 2 B2_1,G2_1,R2_1,B1_1,G1_1,R1_1,R2_3,B1_3
-	byte 3 B2_2,G2_2,R2_2,B1_2,G1_2,R1_2,G1_3,R1_3
-	Binary coded modulation
-	Will need to execute cycles 0,1,3,7
+	This function refreshing matix
+	Using 4 bits per color,3 bytes packed like this:
+	3 byte per 2 pixels
+	32*3 bytes per line
+	First 32 bytes bits 7 to 2 is bit 0 in format B2,G2,R2,B1,G1,R1,x,x
+	Second 32 bytes bit 1
+	Third 32 bytes bit 2
+	Bit4 packed in lass two bits of each byte 
+	Binary Code Modulation used as it faster then PWM
 	*/
 
 	//*** Debug ***
 	//long int time_start = micros();
 	//*****
-
-	int addr, addr_pre,i;
-	uint8_t data_out,offswt=0;
-	uint8_t  *ptr;
+	
+	int addr, addr_pre,i,addr1,addr2;
+	uint8_t data_out;
+	uint8_t  *ptr,*ptr1,*ptr2;
 	img = matrixbuff[display_buffer_index];
-
-	switch (pwm_count) {
-	case 0:
-	case 7:
-		addr_pre = line * 32 * 3;
-		break;
-	case 1:
-		addr_pre = line * 32 * 3 + 32;
-		break;
-	case 3:
-		addr_pre = line * 32 * 3 + 64;
-		break;
-	}
-
+	
+	//Calculate starting address for relevant bit
+	if (pwm_count==0 || pwm_count == 7) addr_pre = line * 96;
+	else if (pwm_count == 1) addr_pre = line * 96 + 32;
+	else if (pwm_count == 3) addr_pre = line * 96 + 64;
+	
 	buffptr = &img[addr_pre];
 	ptr = (uint8_t *)buffptr;
 	
-	switch (pwm_count) {
-	case 0:
-	case 1:
-	case 3:
+	if (pwm_count == 0 || pwm_count == 1 || pwm_count == 3) {//For bits 0,1,2
+		//Clock in data for 32 columns
+		//~12us for 32 data shift commands
+		//x4 pixels can be driven if 64us period will be selected
 		{
 			__asm__ volatile(
-			pew pew pew pew pew pew pew pew
-			pew pew pew pew pew pew pew pew
-			pew pew pew pew pew pew pew pew
-			pew pew pew pew pew pew pew pew
-			::[ptr]  "e" (ptr),
-			[data] "I" (_SFR_IO_ADDR(PORTD))
-			); 
-		}
-		break;
-	case 7:
-		for (i = 0; i < 32; i++) {
-			addr = addr_pre + i;
-			data_out = ((img[addr] & B00000011) << 6) + ((img[addr + 32] & B00000011) << 4) + ((img[addr + 64] & B00000011) << 2);
-			PORTD = data_out;//PORTD = data_out & B11111100;
-			//PORTB = PINB | B00000001;//clock high
-			//PORTB = PINB & B11111110;//clock low
-			{__asm__ volatile ("SBI 5 , 0\n\t" "CBI 5 , 0\n\t"); }//toggle clock high,low
-		}
-		break;
-	}
+				pew pew pew pew pew pew pew pew
+				pew pew pew pew pew pew pew pew
+				pew pew pew pew pew pew pew pew
+				pew pew pew pew pew pew pew pew
+				::[ptr]  "e" (ptr),
+				[data] "I" (_SFR_IO_ADDR(PORTD))
+				);
+		}//asm
 
+	}//if
+	else if (pwm_count == 7) {//For bit 3
+		buffptr = &img[addr_pre + 32];
+		ptr1 = (uint8_t *)buffptr;
+		buffptr = &img[addr_pre + 64];
+		ptr2 = (uint8_t *)buffptr;
+		//Clock in data for 32 columns
+		//~52us for 32 data shift commands
+		{
+			__asm__ volatile(
+				pew1 pew1 pew1 pew1 pew1 pew1 pew1 pew1
+				pew1 pew1 pew1 pew1 pew1 pew1 pew1 pew1
+				pew1 pew1 pew1 pew1 pew1 pew1 pew1 pew1
+				pew1 pew1 pew1 pew1 pew1 pew1 pew1 pew1
+				::[ptr]  "e" (ptr), [ptr1]  "e" (ptr1), [ptr2]  "e" (ptr2),
+				[data] "I" (_SFR_IO_ADDR(PORTD))
+				: "r1"
+				);
+		}//asm
+	}//if
+	
 	if (pwm_count == 0 || pwm_count == 1 || pwm_count == 3 || pwm_count == 7) {
-		/*
-		PORTB = PINB | B00000010;//OE high
-		PORTC = (PINC & B11111000) | line;//Select line
-		PORTC = PINC | B00001000;//LAT high
-		PORTC = PINC & B11110111;//LAT low
-		PORTB = PINB & B11111101;//OE low
-		/**/
-		PORTB = PINB | B00000010;//OE high
-		PORTC = (PINC & B11111000) | line;//Select line
+		//Display clocked in data
+		PORTB = PINB | B00000010; //OE high
+		PORTC = (PINC & B11111000) | line; //Select line
 		{__asm__ volatile (
 			"SBI 8 , 3\n\t" //LAT high PORTC
 			"CBI 8 , 3\n\t" //LAT low
 			"CBI 5 , 1\n\t" //OE low
 			);
-		}
-		/*
-		{__asm__ volatile (
-			"SBI 5 , 1\n\t" //OE high PORTB
-			"SBI 8 , 3\n\t" //LAT high PORTC
-			"IN r16 , 6\n\t"//Read from PINC
-			"ANDI r16 , 0b11111000\n\t"
-			"LD r0, %a[line]\n\t"
-			"ADD r0, r16\n\t"
-			"OUT 8, r0\n\t"
-			"CBI 8 , 3\n\t" //LAT low
-			"CBI 5 , 1\n\t" //OE low
-		:
-		: [line]  "e" ((uint8_t *)line)
-		:"r16","r0");
-		}/**/
-	}
+		}//asm
+	}//if
 	
-	if (pwm_count < 16) {
+	//Counters for lines and Binary Code Modulation
+	if (pwm_count < 16) {//15 levels per bit
 		pwm_count++;
 	}
 	else {
@@ -161,7 +166,7 @@ void HUB75driver::drive()
 		if (line < 7) line++;//Line counter 0-7
 		else {
 			line = 0;
-			if (swap_needed==1) {
+			if (swap_needed==1) {//If double buffering mode
 				if (display_buffer_index == 0) {
 					display_buffer_index = 1;
 					draw_buffer_index = 0;
@@ -174,6 +179,7 @@ void HUB75driver::drive()
 			}
 		}
 	}
+
 	//*** Debug ***
 	//long elapsed = micros() - time_start;
 	//Serial.println(elapsed);
@@ -182,18 +188,15 @@ void HUB75driver::drive()
 
 void HUB75driver::draw_point(unsigned char x, unsigned char y, unsigned char r, unsigned char g, unsigned char b)
 {
-	/*
+	/*Function to draw point on matrix
+	Coordinates starts from 0,0
 	Using 4 bits per color,3 bytes packed like this
 	3 byte per 2 pixels
 	32*3 bytes per line
 	First 32 bytes is bit 0 in format B2,G2,R2,B1,G1,R1,x,x
 	Second 32 bytes bit 1
 	Third 32 bytes bit 2
-	Bit4 packed in lass two bits of each byte so for column n
-	n*3 B2,G2
-	n*3+1 R2,B1
-	n*3+2 G1,R1
-
+	Bit4 packed in lass two bits of each byte
 	*/
 	int addr_0, addr_1, addr_2;
 	int base = (y%8) * 32 * 3;
@@ -221,11 +224,15 @@ void HUB75driver::draw_point(unsigned char x, unsigned char y, unsigned char r, 
 
 void HUB75driver::clear()
 {
+	//Clear panel
 	memset(matrixbuff[draw_buffer_index], 0, buffsize);
 }
 
 void HUB75driver::swapBuffers()
 {
+	//If double buffer mode used this function need to be called each time new information 
+	//need to be displayed
+	//Only flag raised here Actual swap will be synchronised with end of frame
 	if (use_dbuf) {
 		swap_needed = 1;
 	}
@@ -233,6 +240,7 @@ void HUB75driver::swapBuffers()
 
 void HUB75driver::start()
 {
+	//Start refreshing Nothing will be displayed before this function called
 	//Set timer1
 	cli();// disable global interrupts
 	TCCR1A = 0;// set entire TCCR1A register to 0
