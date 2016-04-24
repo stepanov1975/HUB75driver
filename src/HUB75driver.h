@@ -18,7 +18,7 @@ class HUB75driver
 {
 public:
 	HUB75driver();
-	int init(boolean dbuf);
+	int init(boolean dbuf, boolean extra_dim);
 	void drive();
 	void draw_point(unsigned char x, unsigned char y, unsigned char r, unsigned char g, unsigned char b);
 	void clear();
@@ -26,8 +26,8 @@ public:
 	void start();
 
 private:
-	uint8_t         *matrixbuff[2];
-	boolean use_dbuf;
+	uint8_t         *matrixbuff[2],pwm_count_max;
+	boolean use_dbuf,half_brightness;
 	volatile uint8_t pwm_count,line,display_buffer_index,draw_buffer_index,swap_needed;
 	int buffsize;
 	volatile uint8_t *buffptr, *img;

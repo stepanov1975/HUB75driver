@@ -32,12 +32,16 @@ static HUB75driver *activePanel = NULL;
       "SBI 5 , 0"     "\n\t"   \
       "CBI 5 , 0"     "\n\t"
 
+#define pew2 "out %[data]    , __tmp_reg__" "\n\t"   \
+      "SBI 5 , 0"     "\n\t"   \
+      "CBI 5 , 0"     "\n\t"
+
 HUB75driver::HUB75driver()
 {
 	
 }
 
-int HUB75driver::init(boolean dbuf)
+int HUB75driver::init(boolean dbuf,boolean extra_dim)
 {
 	/*Initialisation of matrix
 	if dbuf=true double buffering used
@@ -45,6 +49,12 @@ int HUB75driver::init(boolean dbuf)
 	Pin mapping:
 	A A0,B A1,C A2,R1 2,R2 5,B1 4,B2 7,G1 3,G2 6,LAT A3,CLK 8,OE 9
 	*/
+
+	use_dbuf = dbuf;
+	swap_needed = 0;
+	half_brightness = extra_dim;
+	activePanel = this; // For interrupt hander
+
 	DDRD = DDRD | B11111100;//sets pins 2 to 7 as outputs without changing the value of pins 0 & 1, which are RX & TX
 	DDRC = DDRC | B00001111;//Set pins A0,A1,A2,A3 as output
 	DDRB = DDRB | B00000011;//Set pins 8,9 as output
@@ -67,10 +77,7 @@ int HUB75driver::init(boolean dbuf)
 		draw_buffer_index = 0;
 	}
 	
-	use_dbuf = dbuf;
-	swap_needed = 0;
-
-	activePanel = this; // For interrupt hander
+	
 	return 0;
 }
 
@@ -121,6 +128,7 @@ void HUB75driver::drive()
 				pew pew pew pew pew pew pew pew
 				::[ptr]  "e" (ptr),
 				[data] "I" (_SFR_IO_ADDR(PORTD))
+				:"r0"
 				);
 		}//asm
 
@@ -145,6 +153,20 @@ void HUB75driver::drive()
 		}//asm
 	}//if
 	
+	if (half_brightness && pwm_count == 16) {
+		{
+			__asm__ volatile(
+				"CLR __tmp_reg__ \n\t"
+				pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
+				pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
+				pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
+				pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
+				::[data] "I" (_SFR_IO_ADDR(PORTD))
+				);
+		}//asm
+	}
+	
+
 	if (pwm_count == 0 || pwm_count == 1 || pwm_count == 3 || pwm_count == 7) {
 		//Display clocked in data
 		PORTB = PINB | B00000010; //OE high
@@ -158,7 +180,7 @@ void HUB75driver::drive()
 	}//if
 	
 	//Counters for lines and Binary Code Modulation
-	if (pwm_count < 16) {//15 levels per bit
+	if (pwm_count < pwm_count_max) {//15 levels per bit
 		pwm_count++;
 	}
 	else {
@@ -249,7 +271,14 @@ void HUB75driver::start()
 
 	TCCR1B |= (1 << CS10); //No prescaller
 	TCCR1B |= (1 << WGM12);//CTC mode
-	OCR1A = 992;//62nsec
+	if (half_brightness) {
+		OCR1A = 496;//31nsec
+		pwm_count_max = 32;
+	}
+	else {
+		OCR1A = 992;//62nsec
+		pwm_count_max = 16;
+	}
 
 	TIMSK1 |= (1 << OCIE1A); // enable timer compare interrupt
 	sei();//allow interrupts
