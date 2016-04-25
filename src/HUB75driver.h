@@ -94,12 +94,13 @@ class HUB75driver
 {
 public:
 	HUB75driver();
-	int init(boolean dbuf=false, boolean extra_dim=false);
+	uint8_t init(boolean dbuf=false, boolean extra_dim=false);
 	void drive();
-	void draw_point(unsigned char x, unsigned char y, unsigned char r, unsigned char g, unsigned char b);
+	void draw_point(uint8_t x, uint8_t y, uint8_t r, uint8_t g, uint8_t b);
 	void clear();
 	void swapBuffers(boolean cp_old = false);
 	void start();
+	void debug();
 
 private:
 	uint8_t         *matrixbuff[2],pwm_count_max;

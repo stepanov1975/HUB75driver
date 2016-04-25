@@ -15,7 +15,7 @@ HUB75driver::HUB75driver()
 	
 }
 
-int HUB75driver::init(boolean dbuf,boolean extra_dim)
+uint8_t HUB75driver::init(boolean dbuf,boolean extra_dim)
 {
 	/*Initialisation of matrix
 	if dbuf=true double buffering used
@@ -73,13 +73,15 @@ void HUB75driver::drive()
 	Third 32 bytes bit 2
 	Bit4 packed in lass two bits of each byte 
 	Binary Code Modulation used as it faster then PWM
+	Function execution time 24us for bits 0,1,2 and 65us for bit 4
 	*/
 
 	//*** Debug ***
 	//long int time_start = micros();
 	//*****
 	
-	int  addr_pre,addr1,addr2;
+
+	uint16_t  addr_pre;
 	uint8_t  *ptr,*ptr1,*ptr2;
 	img = matrixbuff[display_buffer_index];
 	boolean latch_needed = false;
@@ -101,14 +103,14 @@ void HUB75driver::drive()
 		//~12us for 32 data shift commands
 		//x4 pixels can be driven if 64us period will be selected
 		{
-			__asm__ volatile(
+			__asm__ (
 				pew pew pew pew pew pew pew pew
 				pew pew pew pew pew pew pew pew
 				pew pew pew pew pew pew pew pew
 				pew pew pew pew pew pew pew pew
 				::[ptr]  "e" (ptr),
 				[data] "I" (_SFR_IO_ADDR(PORTD))
-				: "r0"
+				: "r0", "memory"
 				);
 		}//asm
 		latch_needed = true;
@@ -127,14 +129,14 @@ void HUB75driver::drive()
 		//Clock in data for 32 columns
 		//~52us for 32 data shift commands
 		{
-			__asm__ volatile(
+			__asm__ (
 				pew1 pew1 pew1 pew1 pew1 pew1 pew1 pew1
 				pew1 pew1 pew1 pew1 pew1 pew1 pew1 pew1
 				pew1 pew1 pew1 pew1 pew1 pew1 pew1 pew1
 				pew1 pew1 pew1 pew1 pew1 pew1 pew1 pew1
 				::[ptr]  "e" (ptr), [ptr1]  "e" (ptr1), [ptr2]  "e" (ptr2),
 				[data] "I" (_SFR_IO_ADDR(PORTD))
-				: "r1","r0"
+				: "r1","r0", "memory"
 				);
 		}//asm
 		latch_needed = true;
@@ -142,14 +144,14 @@ void HUB75driver::drive()
 	case 16:
 		if (half_brightness) {
 			{
-				__asm__ volatile(
+				__asm__ (
 					"CLR __tmp_reg__ \n\t"
 					pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
 					pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
 					pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
 					pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
 					::[data] "I" (_SFR_IO_ADDR(PORTD))
-					:"r0"
+					:"r0", "memory"
 					);
 			}//asm
 		}//if
@@ -162,15 +164,14 @@ void HUB75driver::drive()
 
 	if (latch_needed) {
 		//Display clocked in data
-		PORTB = PORTB | B00000010; //OE high
+		PORTB |= B00000010; //OE high
 		PORTC = (PORTC & B11111000) + line; //Select line
-		{__asm__ volatile (
+		__asm__  (
 			"SBI %[portc] , 3\n\t" //LAT high PORTC
 			"CBI %[portc] , 3\n\t" //LAT low
 			"CBI %[portb] , 1\n\t" //OE low
 			::[portc] "I" (_SFR_IO_ADDR(PORTC)), [portb] "I" (_SFR_IO_ADDR(PORTB))
 			);
-		}//asm
 	}//if
 	
 	//Counters for lines and Binary Code Modulation
@@ -229,14 +230,7 @@ void HUB75driver::drive()
 }
 
 
-
-				
-					/*
-#define copy_bit "ldi r16 , 0" "\n\t"\
-				"bst %[b] , %[bit] " "\n\t"\
-				"bld r0 , 4 " "\n\t"\
-				*/
-void HUB75driver::draw_point(unsigned char x, unsigned char y, unsigned char r, unsigned char g, unsigned char b)
+void HUB75driver::draw_point(uint8_t x, uint8_t y, uint8_t r, uint8_t g, uint8_t b)
 {
 	/*Function to draw point on matrix
 	Coordinates starts from 0,0
@@ -254,46 +248,46 @@ void HUB75driver::draw_point(unsigned char x, unsigned char y, unsigned char r, 
 
 	if (x < 0 || x>31 || y < 0 || y>15) return;
 
-	int addr_0, addr_1, addr_2;
-	int base = (y%8) * 32 * 3;
-	uint8_t* img = matrixbuff[draw_buffer_index];
+	uint16_t addr_0, addr_1, addr_2;
+	uint16_t base = (y%8) * 96;//32*3=96
 	addr_0 = base + x;
 	addr_1 = addr_0 + 32;
 	addr_2 = addr_0 + 64;
-	uint8_t  *ptr, *ptr1, *ptr2;
+	uint8_t  *ptr, *ptr1, *ptr2,*img_ptr;
+	img_ptr = matrixbuff[draw_buffer_index];
 	
-	buffptr = &img[addr_0];
+	buffptr = &img_ptr[addr_0];
 	ptr = (uint8_t *)buffptr;
-	buffptr = &img[addr_1];
+	buffptr = &img_ptr[addr_1];
 	ptr1 = (uint8_t *)buffptr;
-	buffptr = &img[addr_2];
+	buffptr = &img_ptr[addr_2];
 	ptr2 = (uint8_t *)buffptr;
 	
 	if (y < 8) {
 		//Set bits 4,3,2 - B1,G1,R1
 		//Bit0
-		__asm__ volatile(
+		__asm__ (
 			copy_bitl
 			:
 			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [bit] "I" (0), [ptr] "e" (ptr)
 			:"r16", "memory"
 			);
 		//Bit1
-		__asm__ volatile(
+		__asm__ (
 			copy_bitl
 			:
 			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [bit] "I" (1), [ptr] "e" (ptr1)
 			: "r16","memory"
 			);
 		//Bit2
-		__asm__ volatile(
+		__asm__ (
 			copy_bitl
 			:
 			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [bit] "I" (2), [ptr] "e" (ptr2)
 			: "r16", "memory"
 			);
 		//Bit3
-		__asm__ volatile(
+		__asm__ (
 			copy_bitl3
 			:
 			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [ptr1] "e" (ptr1), [ptr2] "e" (ptr2)
@@ -303,28 +297,28 @@ void HUB75driver::draw_point(unsigned char x, unsigned char y, unsigned char r, 
 	else {
 		//Set bits 7,6,5 - B2,G2,R2
 		//Bit0
-		__asm__ volatile(
+		__asm__ (
 			copy_bith
 			:
 			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [bit] "I" (0), [ptr] "e" (ptr)
 			: "r16", "memory"
 			);
 		//Bit1
-		__asm__ volatile(
+		__asm__ (
 			copy_bith
 			:
 			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [bit] "I" (1), [ptr] "e" (ptr1)
 			: "r16", "memory"
 			);
 		//Bit2
-		__asm__ volatile(
+		__asm__ (
 			copy_bith
 			:
 			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [bit] "I" (2), [ptr] "e" (ptr2)
 			: "r16", "memory"
 			);
 		//Bit3
-		__asm__ volatile(
+		__asm__ (
 			copy_bith3
 			:
 			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [ptr] "e" (ptr), [ptr1] "e" (ptr1)
@@ -374,4 +368,10 @@ void HUB75driver::start()
 	sei();//allow interrupts
 }
 
-
+void HUB75driver::debug() {
+	pwm_count_max = 16;
+	Serial.print("pwm_count=");
+	Serial.println(pwm_count);
+	Serial.print("line=");
+	Serial.println(line);
+}
