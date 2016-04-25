@@ -189,12 +189,13 @@ void HUB75driver::drive()
 
 	if (latch_needed) {
 		//Display clocked in data
-		PORTB = PINB | B00000010; //OE high
-		PORTC = (PINC & B11111000) | line; //Select line
+		PORTB = PORTB | B00000010; //OE high
+		PORTC = (PORTC & B11111000) + line; //Select line
 		{__asm__ volatile (
-			"SBI 8 , 3\n\t" //LAT high PORTC
-			"CBI 8 , 3\n\t" //LAT low
-			"CBI 5 , 1\n\t" //OE low
+			"SBI %[portc] , 3\n\t" //LAT high PORTC
+			"CBI %[portc] , 3\n\t" //LAT low
+			"CBI %[portb] , 1\n\t" //OE low
+			::[portc] "I" (_SFR_IO_ADDR(PORTC)), [portb] "I" (_SFR_IO_ADDR(PORTB))
 			);
 		}//asm
 	}//if
