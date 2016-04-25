@@ -10,34 +10,6 @@
 
 static HUB75driver *activePanel = NULL;
 
-#define pew "ld  __tmp_reg__, %a[ptr]+"    "\n\t"   \
-      "out %[data]    , __tmp_reg__" "\n\t"   \
-      "SBI 5 , 0"     "\n\t"   \
-      "CBI 5 , 0"     "\n\t"
-
-#define pew1 "ld  __tmp_reg__, %a[ptr]+"    "\n\t"   \
-      "bst __tmp_reg__,1 " "\n\t"   \
-      "bld r1 , 7 " "\n\t"   \
-      "bst __tmp_reg__,0 " "\n\t"   \
-      "bld r1,6 " "\n\t"   \
-	  "ld  __tmp_reg__, %a[ptr1]+"    "\n\t"   \
-	  "bst __tmp_reg__,1 " "\n\t"   \
-	  "bld r1,5 " "\n\t"   \
-	  "bst __tmp_reg__,0 " "\n\t"   \
-	  "bld r1,4 " "\n\t"   \
-	  "ld  __tmp_reg__, %a[ptr2]+"    "\n\t"   \
-	  "bst __tmp_reg__,1 " "\n\t"   \
-	  "bld r1,3 " "\n\t"   \
-	  "bst __tmp_reg__,0 " "\n\t"   \
-	  "bld r1,2 " "\n\t"   \
-      "out %[data]    , r1" "\n\t"   \
-      "SBI 5 , 0"     "\n\t"   \
-      "CBI 5 , 0"     "\n\t"
-
-#define pew2 "out %[data]    , __tmp_reg__" "\n\t"   \
-      "SBI 5 , 0"     "\n\t"   \
-      "CBI 5 , 0"     "\n\t"
-
 HUB75driver::HUB75driver()
 {
 	
@@ -162,7 +134,7 @@ void HUB75driver::drive()
 				pew1 pew1 pew1 pew1 pew1 pew1 pew1 pew1
 				::[ptr]  "e" (ptr), [ptr1]  "e" (ptr1), [ptr2]  "e" (ptr2),
 				[data] "I" (_SFR_IO_ADDR(PORTD))
-				: "r1"
+				: "r1","r0"
 				);
 		}//asm
 		latch_needed = true;
@@ -177,6 +149,7 @@ void HUB75driver::drive()
 					pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
 					pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
 					::[data] "I" (_SFR_IO_ADDR(PORTD))
+					:"r0"
 					);
 			}//asm
 		}//if
@@ -255,6 +228,14 @@ void HUB75driver::drive()
 	//********************
 }
 
+
+
+				
+					/*
+#define copy_bit "ldi r16 , 0" "\n\t"\
+				"bst %[b] , %[bit] " "\n\t"\
+				"bld r0 , 4 " "\n\t"\
+				*/
 void HUB75driver::draw_point(unsigned char x, unsigned char y, unsigned char r, unsigned char g, unsigned char b)
 {
 	/*Function to draw point on matrix
@@ -271,23 +252,90 @@ void HUB75driver::draw_point(unsigned char x, unsigned char y, unsigned char r, 
 	int base = (y%8) * 32 * 3;
 	uint8_t* img = matrixbuff[draw_buffer_index];
 	addr_0 = base + x;
-	addr_1 = base + 32 + x;
-	addr_2 = base + 64 + x;
-
+	addr_1 = addr_0 + 32;
+	addr_2 = addr_0 + 64;
+	uint8_t  *ptr, *ptr1, *ptr2;
+	
+	buffptr = &img[addr_0];
+	ptr = (uint8_t *)buffptr;
+	buffptr = &img[addr_1];
+	ptr1 = (uint8_t *)buffptr;
+	buffptr = &img[addr_2];
+	ptr2 = (uint8_t *)buffptr;
+	
 	if (y < 8) {
-		//Set bits 5,4,3 - B1,G1,R1
-		img[addr_0] = ((b&bit0) << 4) + ((g&bit0) << 3) + ((r&bit0) << 2) + (img[addr_0] & B11100011);
-		img[addr_1] = ((b&bit1) << 3) + ((g&bit1) << 2) + ((r&bit1) << 1) + (img[addr_1] & B11100011);
-		img[addr_2] = ((b&bit2) << 2) + ((g&bit2) << 1) + (r&bit2) + (img[addr_2] & B11100011);
-		img[addr_1] = ((b&bit3) >> 3) + (img[addr_1] & B11111110);
-		img[addr_2] = ((g&bit3) >> 2) + ((r&bit3) >> 3) + (img[addr_2] & B11111100);
+		//Set bits 4,3,2 - B1,G1,R1
+		//Bit0
+		__asm__ volatile(
+			copy_bitl
+			:
+			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [bit] "I" (0), [ptr] "e" (ptr)
+			:"r16"
+			);
+		//Bit1
+		__asm__ volatile(
+			copy_bitl
+			:
+			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [bit] "I" (1), [ptr] "e" (ptr1)
+			: "r16"
+			);
+		//Bit2
+		__asm__ volatile(
+			copy_bitl
+			:
+			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [bit] "I" (2), [ptr] "e" (ptr2)
+			: "r16"
+			);
+		//Bit3
+		__asm__ volatile(
+			copy_bitl3
+			:
+			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [ptr1] "e" (ptr1), [ptr2] "e" (ptr2)
+			: "r16"
+			);
+
+		//Set bits 4,3,2 - B1,G1,R1
+		//img[addr_0] = ((b&bit0) << 4) + ((g&bit0) << 3) + ((r&bit0) << 2) + (img[addr_0] & RSTBITSRGB1);
+		//img[addr_1] = ((b&bit1) << 3) + ((g&bit1) << 2) + ((r&bit1) << 1) + (img[addr_1] & RSTBITSRGB1);
+		//img[addr_2] = ((b&bit2) << 2) + ((g&bit2) << 1) + (r&bit2) + (img[addr_2] & RSTBITSRGB1);
+		//img[addr_1] = ((b&bit3) >> 3) + (img[addr_1] & B11111110);
+		//img[addr_2] = ((g&bit3) >> 2) + ((r&bit3) >> 3) + (img[addr_2] & B11111100);
 	}
 	else {
-		img[addr_0] = ((b&bit0) << 7) + ((g&bit0) << 6) + ((r&bit0) << 5) + (img[addr_0] & B00011111);
-		img[addr_1] = ((b&bit1) << 6) + ((g&bit1) << 5) + ((r&bit1) << 4) + (img[addr_1] & B00011111);
-		img[addr_2] = ((b&bit2) << 5) + ((g&bit2) << 4) + ((r&bit2) << 3) + (img[addr_2] & B00011111);
-		img[addr_0] = ((b&bit3) >> 2) + ((g&bit3) >> 3) + (img[addr_0] & B11111100);
-		img[addr_1] = ((r&bit3) >> 2) + (img[addr_1] & B11111101);
+		//Set bits 7,6,5 - B2,G2,R2
+		//Bit0
+		__asm__ volatile(
+			copy_bith
+			:
+			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [bit] "I" (0), [ptr] "e" (ptr)
+			: "r16"
+			);
+		//Bit1
+		__asm__ volatile(
+			copy_bith
+			:
+			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [bit] "I" (1), [ptr] "e" (ptr1)
+			: "r16"
+			);
+		//Bit2
+		__asm__ volatile(
+			copy_bith
+			:
+			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [bit] "I" (2), [ptr] "e" (ptr2)
+			: "r16"
+			);
+		//Bit3
+		__asm__ volatile(
+			copy_bith3
+			:
+			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [ptr] "e" (ptr), [ptr1] "e" (ptr1)
+			: "r16"
+			);
+		//img[addr_0] = ((b&bit0) << 7) + ((g&bit0) << 6) + ((r&bit0) << 5) + (img[addr_0] & RSTBITSRGB2);
+		//img[addr_1] = ((b&bit1) << 6) + ((g&bit1) << 5) + ((r&bit1) << 4) + (img[addr_1] & RSTBITSRGB2);
+		//img[addr_2] = ((b&bit2) << 5) + ((g&bit2) << 4) + ((r&bit2) << 3) + (img[addr_2] & RSTBITSRGB2);
+		//img[addr_0] = ((b&bit3) >> 2) + ((g&bit3) >> 3) + (img[addr_0] & B11111100);
+		//img[addr_1] = ((r&bit3) >> 2) + (img[addr_1] & B11111101);
 	}
 }
 
