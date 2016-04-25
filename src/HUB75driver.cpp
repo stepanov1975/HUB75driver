@@ -107,20 +107,24 @@ void HUB75driver::drive()
 	//long int time_start = micros();
 	//*****
 	
-	int addr, addr_pre,i,addr1,addr2;
-	uint8_t data_out;
+	int  addr_pre,addr1,addr2;
 	uint8_t  *ptr,*ptr1,*ptr2;
 	img = matrixbuff[display_buffer_index];
-	
-	//Calculate starting address for relevant bit
-	if (pwm_count==0 || pwm_count == 7) addr_pre = line * 96;
-	else if (pwm_count == 1) addr_pre = line * 96 + 32;
-	else if (pwm_count == 3) addr_pre = line * 96 + 64;
-	
-	buffptr = &img[addr_pre];
-	ptr = (uint8_t *)buffptr;
-	
-	if (pwm_count == 0 || pwm_count == 1 || pwm_count == 3) {//For bits 0,1,2
+	boolean latch_needed = false;
+
+	switch (pwm_count)
+	{
+	case 0:
+	case 1:
+	case 3:
+		//For bits 0,1,2
+		//Calculate starting address for relevant bit
+		if (pwm_count == 0) addr_pre = line * 96;
+		else if (pwm_count == 1) addr_pre = line * 96 + 32;
+		else addr_pre = line * 96 + 64;
+		//Pointer to start of buffer
+		buffptr = &img[addr_pre];
+		ptr = (uint8_t *)buffptr;
 		//Clock in data for 32 columns
 		//~12us for 32 data shift commands
 		//x4 pixels can be driven if 64us period will be selected
@@ -132,12 +136,18 @@ void HUB75driver::drive()
 				pew pew pew pew pew pew pew pew
 				::[ptr]  "e" (ptr),
 				[data] "I" (_SFR_IO_ADDR(PORTD))
-				:"r0"
+				: "r0"
 				);
 		}//asm
-
-	}//if
-	else if (pwm_count == 7) {//For bit 3
+		latch_needed = true;
+		break;
+	case 7:
+		//For bit 3
+		//Calculate starting address for relevant bit
+		addr_pre = line * 96;
+		//Pointers to start of buffer
+		buffptr = &img[addr_pre];
+		ptr = (uint8_t *)buffptr;
 		buffptr = &img[addr_pre + 32];
 		ptr1 = (uint8_t *)buffptr;
 		buffptr = &img[addr_pre + 64];
@@ -155,23 +165,29 @@ void HUB75driver::drive()
 				: "r1"
 				);
 		}//asm
-	}//if
-	
-	if (half_brightness && pwm_count == 16) {
-		{
-			__asm__ volatile(
-				"CLR __tmp_reg__ \n\t"
-				pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
-				pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
-				pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
-				pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
-				::[data] "I" (_SFR_IO_ADDR(PORTD))
-				);
-		}//asm
+		latch_needed = true;
+		break;
+	case 16:
+		if (half_brightness) {
+			{
+				__asm__ volatile(
+					"CLR __tmp_reg__ \n\t"
+					pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
+					pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
+					pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
+					pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
+					::[data] "I" (_SFR_IO_ADDR(PORTD))
+					);
+			}//asm
+		}//if
+		latch_needed = true;
+		break;
+	default:
+		break;
 	}
 	
 
-	if (pwm_count == 0 || pwm_count == 1 || pwm_count == 3 || pwm_count == 7) {
+	if (latch_needed) {
 		//Display clocked in data
 		PORTB = PINB | B00000010; //OE high
 		PORTC = (PINC & B11111000) | line; //Select line
