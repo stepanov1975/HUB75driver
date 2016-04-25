@@ -247,7 +247,13 @@ void HUB75driver::draw_point(unsigned char x, unsigned char y, unsigned char r, 
 	Second 32 bytes bit 1
 	Third 32 bytes bit 2
 	Bit4 packed in lass two bits of each byte
+	First byte B2G2
+	Second R2B1
+	THird G1R1
 	*/
+
+	if (x < 0 || x>31 || y < 0 || y>15) return;
+
 	int addr_0, addr_1, addr_2;
 	int base = (y%8) * 32 * 3;
 	uint8_t* img = matrixbuff[draw_buffer_index];
@@ -270,36 +276,29 @@ void HUB75driver::draw_point(unsigned char x, unsigned char y, unsigned char r, 
 			copy_bitl
 			:
 			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [bit] "I" (0), [ptr] "e" (ptr)
-			:"r16"
+			:"r16", "memory"
 			);
 		//Bit1
 		__asm__ volatile(
 			copy_bitl
 			:
 			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [bit] "I" (1), [ptr] "e" (ptr1)
-			: "r16"
+			: "r16","memory"
 			);
 		//Bit2
 		__asm__ volatile(
 			copy_bitl
 			:
 			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [bit] "I" (2), [ptr] "e" (ptr2)
-			: "r16"
+			: "r16", "memory"
 			);
 		//Bit3
 		__asm__ volatile(
 			copy_bitl3
 			:
 			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [ptr1] "e" (ptr1), [ptr2] "e" (ptr2)
-			: "r16"
+			: "r16", "memory"
 			);
-
-		//Set bits 4,3,2 - B1,G1,R1
-		//img[addr_0] = ((b&bit0) << 4) + ((g&bit0) << 3) + ((r&bit0) << 2) + (img[addr_0] & RSTBITSRGB1);
-		//img[addr_1] = ((b&bit1) << 3) + ((g&bit1) << 2) + ((r&bit1) << 1) + (img[addr_1] & RSTBITSRGB1);
-		//img[addr_2] = ((b&bit2) << 2) + ((g&bit2) << 1) + (r&bit2) + (img[addr_2] & RSTBITSRGB1);
-		//img[addr_1] = ((b&bit3) >> 3) + (img[addr_1] & B11111110);
-		//img[addr_2] = ((g&bit3) >> 2) + ((r&bit3) >> 3) + (img[addr_2] & B11111100);
 	}
 	else {
 		//Set bits 7,6,5 - B2,G2,R2
@@ -308,34 +307,29 @@ void HUB75driver::draw_point(unsigned char x, unsigned char y, unsigned char r, 
 			copy_bith
 			:
 			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [bit] "I" (0), [ptr] "e" (ptr)
-			: "r16"
+			: "r16", "memory"
 			);
 		//Bit1
 		__asm__ volatile(
 			copy_bith
 			:
 			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [bit] "I" (1), [ptr] "e" (ptr1)
-			: "r16"
+			: "r16", "memory"
 			);
 		//Bit2
 		__asm__ volatile(
 			copy_bith
 			:
 			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [bit] "I" (2), [ptr] "e" (ptr2)
-			: "r16"
+			: "r16", "memory"
 			);
 		//Bit3
 		__asm__ volatile(
 			copy_bith3
 			:
 			: [r] "r" (r), [g] "r" (g), [b] "r" (b), [ptr] "e" (ptr), [ptr1] "e" (ptr1)
-			: "r16"
+			: "r16", "memory"
 			);
-		//img[addr_0] = ((b&bit0) << 7) + ((g&bit0) << 6) + ((r&bit0) << 5) + (img[addr_0] & RSTBITSRGB2);
-		//img[addr_1] = ((b&bit1) << 6) + ((g&bit1) << 5) + ((r&bit1) << 4) + (img[addr_1] & RSTBITSRGB2);
-		//img[addr_2] = ((b&bit2) << 5) + ((g&bit2) << 4) + ((r&bit2) << 3) + (img[addr_2] & RSTBITSRGB2);
-		//img[addr_0] = ((b&bit3) >> 2) + ((g&bit3) >> 3) + (img[addr_0] & B11111100);
-		//img[addr_1] = ((r&bit3) >> 2) + (img[addr_1] & B11111101);
 	}
 }
 
