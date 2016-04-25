@@ -200,29 +200,6 @@ void HUB75driver::drive()
 		}
 	}
 	
-	/*
-	if (line < 7) line++;//Line counter 0-7
-	else {
-		line = 0;
-		if (pwm_count < pwm_count_max) {//15 levels per bit
-			pwm_count++;
-		}
-		else {
-			pwm_count = 0;
-		}
-		if (swap_needed == 1) {//If double buffering mode
-			if (display_buffer_index == 0) {
-				display_buffer_index = 1;
-				draw_buffer_index = 0;
-			}
-			else {
-				display_buffer_index = 0;
-				draw_buffer_index = 1;
-			}
-			swap_needed = 0;
-		}
-	}
-	*/
 	//*** Debug ***
 	//long elapsed = micros() - time_start;
 	//Serial.println(elapsed);
@@ -360,7 +337,7 @@ void HUB75driver::start()
 		pwm_count_max = 32;
 	}
 	else {
-		OCR1A = 992;//62nsec
+		OCR1A = 992;//992-62nsec
 		pwm_count_max = 16;
 	}
 
