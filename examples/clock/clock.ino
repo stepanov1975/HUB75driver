@@ -21,7 +21,7 @@ void setup()
 void loop()
 {
 	uint8_t r, g, b;
-	r = 0;
+	r = 4;
 	g = 1;
 	b = 0;
 	putLargeTime(2, 2, hour(), minute(), second(), r, g, b);
