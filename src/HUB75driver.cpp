@@ -178,6 +178,7 @@ void HUB75driver::updateDisplay()
 		if (line < 7) line++;//Line counter 0-7
 		else {
 			line = 0;
+			
 			if (swap_needed==1) {//If double buffering mode
 				
 				if (display_buffer_index == 0) {
@@ -216,7 +217,7 @@ void HUB75driver::drawPixel(uint8_t x, uint8_t y, uint8_t r, uint8_t g, uint8_t 
 	Second R2B1
 	THird G1R1
 	*/
-
+	while (swap_needed);
 	if (x < 0 || x>31 || y < 0 || y>15) return;
 
 	uint16_t addr_0, addr_1, addr_2;
@@ -301,6 +302,7 @@ void HUB75driver::drawPixel(uint8_t x, uint8_t y, uint8_t r, uint8_t g, uint8_t 
 void HUB75driver::cleanScreen()
 {
 	//Clear panel
+	while (swap_needed);
 	memset(matrixbuff[draw_buffer_index], 0, buffsize);
 }
 
