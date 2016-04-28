@@ -7,6 +7,7 @@
 	#include "arduino.h"
 #else
 	#include "WProgram.h"
+	#include "pins_arduino.h"
 #endif
 
 #define bit0 B00000001
@@ -95,11 +96,11 @@ class HUB75driver
 public:
 	HUB75driver();
 	uint8_t init(boolean dbuf=false, boolean extra_dim=false);
-	void drive();
-	void draw_point(uint8_t x, uint8_t y, uint8_t r, uint8_t g, uint8_t b);
-	void clear();
+	void updateDisplay();
+	void drawPixel(uint8_t x, uint8_t y, uint8_t r, uint8_t g, uint8_t b);
+	void cleanScreen();
 	void swapBuffers(boolean cp_old = false);
-	void start();
+	void begin();
 	void debug();
 
 private:

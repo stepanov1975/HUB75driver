@@ -58,10 +58,10 @@ uint8_t HUB75driver::init(boolean dbuf,boolean extra_dim)
 }
 
 ISR(TIMER1_COMPA_vect) {
-	activePanel->drive();//Matrix refrshing function
+	activePanel->updateDisplay();//Matrix refrshing function
 }
 
-void HUB75driver::drive()
+void HUB75driver::updateDisplay()
 {
 	/*
 	This function refreshing matix
@@ -102,17 +102,15 @@ void HUB75driver::drive()
 		//Clock in data for 32 columns
 		//~12us for 32 data shift commands
 		//x4 pixels can be driven if 64us period will be selected
-		{
-			__asm__ (
-				pew pew pew pew pew pew pew pew
-				pew pew pew pew pew pew pew pew
-				pew pew pew pew pew pew pew pew
-				pew pew pew pew pew pew pew pew
-				::[ptr]  "e" (ptr),
-				[data] "I" (_SFR_IO_ADDR(PORTD))
-				: "r0", "memory"
-				);
-		}//asm
+		__asm__ (
+			pew pew pew pew pew pew pew pew
+			pew pew pew pew pew pew pew pew
+			pew pew pew pew pew pew pew pew
+			pew pew pew pew pew pew pew pew
+			::[ptr]  "e" (ptr),
+			[data] "I" (_SFR_IO_ADDR(PORTD))
+			: "r0", "memory"
+			);
 		latch_needed = true;
 		break;
 	case 7:
@@ -128,32 +126,28 @@ void HUB75driver::drive()
 		ptr2 = (uint8_t *)buffptr;
 		//Clock in data for 32 columns
 		//~52us for 32 data shift commands
-		{
-			__asm__ (
-				pew1 pew1 pew1 pew1 pew1 pew1 pew1 pew1
-				pew1 pew1 pew1 pew1 pew1 pew1 pew1 pew1
-				pew1 pew1 pew1 pew1 pew1 pew1 pew1 pew1
-				pew1 pew1 pew1 pew1 pew1 pew1 pew1 pew1
-				::[ptr]  "e" (ptr), [ptr1]  "e" (ptr1), [ptr2]  "e" (ptr2),
-				[data] "I" (_SFR_IO_ADDR(PORTD))
-				: "r1","r0", "memory"
-				);
-		}//asm
+		__asm__ (
+			pew1 pew1 pew1 pew1 pew1 pew1 pew1 pew1
+			pew1 pew1 pew1 pew1 pew1 pew1 pew1 pew1
+			pew1 pew1 pew1 pew1 pew1 pew1 pew1 pew1
+			pew1 pew1 pew1 pew1 pew1 pew1 pew1 pew1
+			::[ptr]  "e" (ptr), [ptr1]  "e" (ptr1), [ptr2]  "e" (ptr2),
+			[data] "I" (_SFR_IO_ADDR(PORTD))
+			: "r1","r0", "memory"
+			);
 		latch_needed = true;
 		break;
 	case 16:
 		if (half_brightness) {
-			{
-				__asm__ (
-					"CLR __tmp_reg__ \n\t"
-					pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
-					pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
-					pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
-					pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
-					::[data] "I" (_SFR_IO_ADDR(PORTD))
-					:"r0", "memory"
-					);
-			}//asm
+			__asm__ (
+				"CLR __tmp_reg__ \n\t"
+				pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
+				pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
+				pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
+				pew2 pew2 pew2 pew2 pew2 pew2 pew2 pew2
+				::[data] "I" (_SFR_IO_ADDR(PORTD))
+				:"r0", "memory"
+				);
 		}//if
 		latch_needed = true;
 		break;
@@ -207,7 +201,7 @@ void HUB75driver::drive()
 }
 
 
-void HUB75driver::draw_point(uint8_t x, uint8_t y, uint8_t r, uint8_t g, uint8_t b)
+void HUB75driver::drawPixel(uint8_t x, uint8_t y, uint8_t r, uint8_t g, uint8_t b)
 {
 	/*Function to draw point on matrix
 	Coordinates starts from 0,0
@@ -304,7 +298,7 @@ void HUB75driver::draw_point(uint8_t x, uint8_t y, uint8_t r, uint8_t g, uint8_t
 	}
 }
 
-void HUB75driver::clear()
+void HUB75driver::cleanScreen()
 {
 	//Clear panel
 	memset(matrixbuff[draw_buffer_index], 0, buffsize);
@@ -321,7 +315,7 @@ void HUB75driver::swapBuffers(boolean cp_old)
 	}
 }
 
-void HUB75driver::start()
+void HUB75driver::begin()
 {
 	//Start refreshing Nothing will be displayed before this function called
 	//Set timer1
