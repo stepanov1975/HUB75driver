@@ -84,7 +84,7 @@ void HUB75driver::updateDisplay()
 	uint16_t  addr_pre;
 	uint8_t  *ptr,*ptr1,*ptr2;
 	img = matrixbuff[display_buffer_index];
-	boolean latch_needed = false;
+	uint8_t latch_needed = 0;
 
 	switch (pwm_count)
 	{
@@ -111,7 +111,7 @@ void HUB75driver::updateDisplay()
 			[data] "I" (_SFR_IO_ADDR(PORTD))
 			: "r0", "memory"
 			);
-		latch_needed = true;
+		latch_needed = 1;
 		break;
 	case 7:
 		//For bit 3
@@ -135,7 +135,7 @@ void HUB75driver::updateDisplay()
 			[data] "I" (_SFR_IO_ADDR(PORTD))
 			: "r1","r0", "memory"
 			);
-		latch_needed = true;
+		latch_needed = 1;
 		break;
 	case 16:
 		if (half_brightness) {
@@ -149,7 +149,7 @@ void HUB75driver::updateDisplay()
 				:"r0", "memory"
 				);
 		}//if
-		latch_needed = true;
+		latch_needed = 1;
 		break;
 	default:
 		break;

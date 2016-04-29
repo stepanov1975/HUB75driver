@@ -105,7 +105,7 @@ public:
 
 private:
 	uint8_t         *matrixbuff[2],pwm_count_max;
-	boolean use_dbuf,half_brightness,cp_back_to_front;
+	uint8_t use_dbuf,half_brightness,cp_back_to_front;
 	volatile uint8_t pwm_count,line,display_buffer_index,draw_buffer_index,swap_needed;
 	int buffsize;
 	volatile uint8_t *buffptr, *img;
