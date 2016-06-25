@@ -11,7 +11,7 @@ void setup()
 	//if first argument is true double buffering used, need swapBuffers() to refresh
 	//if second argument is true additional dimming will be applyed. brightness will reduce by half
 	matrix.init(true, true);
-	matrix.start();//Enable interupt
+	matrix.begin();//Enable interupt
 }
 
 void loop()
@@ -21,8 +21,8 @@ void loop()
 	for (i = 0; i < len; i++) {
 		for (uint8_t offset = 0; offset < 8; offset++) {
 			
-			matrix.clear();
-			put_string_from_progmem(-offset, 4, str, i, 0, 1, 0);
+			matrix.cleanScreen();
+			put_string_from_progmem(-offset, 4, str, i, 3, 0, 0);
 			//put_string_from_progmem(-offset+1, 4, str, i, r, g, b);
 			matrix.swapBuffers();
 			delay(25);
@@ -58,7 +58,7 @@ void putChar(uint8_t x, uint8_t y, const unsigned char * c, uint8_t h, uint8_t w
 		for (byte col = 0; col<w; col++)
 		{
 			if (rowDots & (1 << (col)))
-				matrix.draw_point(x + col, y + row, r, g, b);
+				matrix.drawPixel(x + col, y + row, r, g, b);
 		}
 	}
 }
