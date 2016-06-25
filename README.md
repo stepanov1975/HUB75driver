@@ -7,13 +7,15 @@ RAM: 40 bytes + 768 bytes if no double buffering and 1536 bytes if double buffer
 It takes 7ms to fill all matrix using drawPixel() function (512 times)
 
 Usage example:
-Initialisation:
+```C++
+//Initialisation:
 HUB75driver matrix;
 //if first argument is true double buffering used, need swapBuffers() to refresh
 //if second argument is true additional dimming will be applyed. brightness will reduce by half
 matrix.init(true, true);
 matrix.begin();//Enable interupt
+//Drawing
 matrix.cleanScreen();//Clean screen
 matrix.drawPixel(1, 1, 1, 0, 0);//put single point. parameters x,y,r,g,b
 matrix.swapBuffers();//must be used if double buffering enabled
-
+```
